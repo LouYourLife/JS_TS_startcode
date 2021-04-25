@@ -1,0 +1,124 @@
+import * as mongo from "mongodb"
+import FriendFacade from '../src/facades/friendFacade';
+
+import chai from "chai";
+const expect = chai.expect;
+
+//use these two lines for more streamlined tests of promise operations
+import chaiAsPromised from "chai-as-promised";
+chai.use(chaiAsPromised);
+
+import bcryptjs from "bcryptjs"
+import { InMemoryDbConnector } from "../src/config/dbConnector"
+import { ApiError } from "../src/errors/apiError";
+import debug from "debug";
+
+let friendCollection: mongo.Collection;
+let facade: FriendFacade;
+
+describe("## Verify the Friends Facade ##", () => {
+
+  before(async function () {
+    //Connect to inmemory test database
+    //Get the database and initialize the facade
+    //Initialize friendCollection, to operate on the database without the facade
+    const client = await InMemoryDbConnector.connect();
+    const db = client.db();
+    friendCollection = db.collection("friends");
+    facade = new FriendFacade(db);
+  })
+
+  beforeEach(async () => {
+    const hashedPW = await bcryptjs.hash("secret", 4)
+    await friendCollection.deleteMany({})
+    //Create a few testusers for ALL the tests
+    await friendCollection.insertMany([
+        { firstName: "Logan", lastName: "Sanders", email: "ls@e.dk", password: hashedPW},
+        { firstName: "Tony", lastName: "Stark", email: "ts@e.dk", password: hashedPW},
+    ])
+  })
+
+  describe("Verify the addFriend method", () => {
+    it("It should Add the user Jan", async () => {
+      const newFriend = { firstName: "Jan", lastName: "Olsen", email: "jan@b.dk", password: "secret" }
+      const status = await facade.addFriend(newFriend);
+      expect(status).to.be.not.null
+      const jan = await friendCollection.findOne({ email: "jan@b.dk" })
+      expect(jan.firstName).to.be.equal("Jan")
+    })
+
+    it("It should not add a user with a role (validation fails)", async () => {
+        try {
+            const newFriend = { firstName: "Jan", lastName: "Olsen", email: "jan@b.dk", password: "secret", role: "admin" }
+            const status = await facade.addFriend(newFriend);
+        } catch (err) {
+            expect(err.message).to.be.equal("\"role\" is not allowed");
+        }
+      
+    //   const jan = await friendCollection.findOne({ email: "jan@b.dk"})
+    //   expect(jan.firstName).to.be.null
+    })
+  })
+
+  describe("Verify the editFriend method", () => {
+    it("It should change lastName to Moore", async () => {
+        const loganOld = await friendCollection.findOne({ email: "ls@e.dk" });
+        //const hashedPW = await bcryptjs.hash("secret", 4)
+        const newFriend = { firstName: "Logan", lastName: "Moore", email: "ls@e.dk", password: "secret"}
+        const status = await facade.editFriend(newFriend.email, newFriend);
+        expect(status).to.be.not.null
+        const loganNew = await friendCollection.findOne({ email: "ls@e.dk" });
+        expect(loganNew.lastName).to.be.equal("Moore");
+    })
+  })
+
+  describe("Verify the deleteFriend method", () => {
+    it("It should remove the user Tony", async () => {
+        const tony = await facade.deleteFriend("ts@e.dk");
+        const status = await friendCollection.findOne({ email: "ts@e.dk" });
+        expect(status).to.be.null
+    })
+    it("It should return null, for a user that does not exist", async () => {
+        const user = await facade.deleteFriend("test@e.dk");
+        expect(user).to.be.null
+    })
+  })
+
+  describe("Verify the getAllFriends method", () => {
+    it("It should get two friends", async () => {
+        const logan = await friendCollection.findOne({ email: "ls@e.dk"});
+        const tony = await friendCollection.findOne({ email: "ts@e.dk"});
+        const friends = await facade.getAllFriends();
+        expect(friends).to.be.not.null
+        expect(friends).to.be.an('array')
+        expect(friends).to.have.lengthOf(2)
+    })
+  })
+
+  describe("Verify the getFriend method", () => {
+
+    it("It should find Logan Sanders", async () => {
+        const logan = await facade.getFrind("ls@e.dk");
+        expect(logan.firstName).to.be.equal("Logan")
+        expect(logan.lastName).to.be.equal("Sanders")
+    })
+    it("It should not find test@e.dk", async () => {
+        const user = await facade.getFrind("test@e.dk");
+        expect(user).to.be.null
+    })
+  })
+
+  describe("Verify the getVerifiedUser method", () => {
+    it("It should correctly validate Logan Sanders' credential,s", async () => {
+      const veriefiedPeter = await facade.getVerifiedUser("ls@e.dk", "secret")
+      expect(veriefiedPeter).to.be.not.null;
+    })
+
+    xit("It should NOT validate Peter Pan's credential,s", async () => {
+    })
+
+    xit("It should NOT validate a non-existing users credentials", async () => {
+    })
+  })
+
+})

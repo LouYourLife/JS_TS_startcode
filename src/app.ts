@@ -11,6 +11,8 @@ import logger, { stream } from "./middleware/logger";
 import authMiddleware from "./middleware/basic-auth";
 const cors = require('cors');
 
+app.use(express.json());
+
 // Winston/Morgan-logger
 const morganFormat = process.env.NODE_ENV == "production" ? "combined" : "dev"
 app.use(require("morgan")(morganFormat, { stream }));
@@ -33,11 +35,20 @@ app.use(express.static(path.join(process.cwd(), "public")))
 
 app.use(cors());
 
-app.use("/api/friends", authMiddleware, friendsRoutes)
+app.use("/api/friends", /* authMiddleware, */ friendsRoutes)
 
 app.get("/demo", (req, res) => {
     res.send("I work!!")
 })
+
+import { graphqlHTTP } from 'express-graphql';
+import { schema } from './graphql/schema';
+
+app.use('/graphql', graphqlHTTP({
+  schema: schema,
+  graphiql: true,
+}));
+
 
 //Vi ender her hvis ingen andre middelwares ovenover laver et respons
 //404 handlers for api-requests

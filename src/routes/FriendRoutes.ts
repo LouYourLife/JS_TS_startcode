@@ -22,9 +22,8 @@ router.use(async (req, res, next) => {
 router.post('/', async function (req, res, next) {
   try {
     let newFriend = req.body;
-    //#####################################
-    throw new Error("COMPLETE THIS METHOD")
-    //#####################################
+    const friend = await facade.addFriend(newFriend);
+    res.json(friend);
   } catch (err) {
     debug(err)
     if (err instanceof ApiError) {
@@ -45,14 +44,10 @@ router.get("/all", async (req: any, res) => {
 })
 
 router.put('/:email', async function (req: any, res, next) {
-
   try {
-    const email = null //GET THE USERS EMAIL FROM SOMEWHERE (req.params OR req.credentials.userName)
     let newFriend = req.body;
-    //#####################################
-    throw new Error("COMPLETE THIS METHOD")
-    //#####################################
-
+    const friend = await facade.editFriend(req.params.email, newFriend);
+    res.json(friend);
   } catch (err) {
     debug(err)
     if (err instanceof ApiError) {
@@ -66,9 +61,14 @@ router.get("/find-user/:email", async (req: any, res, next) => {
 
   const userId = req.params.userid;
   try {
-    //#####################################
-    throw new Error("COMPLETE THIS METHOD")
-    //#####################################
+    const givenEmail = req.params.email; //GET THE USERS EMAIL FROM SOMEWHERE (req.params OR req.credentials.userName)
+
+    let newFriend = await facade.getFrind(givenEmail);
+    if (newFriend == null) {
+        throw new ApiError("user not found",404);
+    }
+    const {firstName, lastName, email} = newFriend;
+    res.json({firstName, lastName, email});
   } catch (err) {
     debug(err)
     if (err instanceof ApiError) {
